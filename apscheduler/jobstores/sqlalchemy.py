@@ -10,29 +10,26 @@ except ImportError:  # pragma: nocover
     import pickle
 
 try:
-    from sqlalchemy import (
-        create_engine, Table, Column, MetaData, Unicode, Float, LargeBinary, select)
+    from sqlalchemy import create_engine, Table, Column, MetaData, Unicode, Float, LargeBinary, select
+    from sqlalchemy.exc import * 
     from sqlalchemy.exc import IntegrityError
-    from sqlalchemy.sql.expression import null
 except ImportError:  # pragma: nocover
     raise ImportError('SQLAlchemyJobStore requires SQLAlchemy installed')
 
 
 class SQLAlchemyJobStore(BaseJobStore):
     """
-    Stores jobs in a database table using SQLAlchemy.
-    The table will be created if it doesn't exist in the database.
+    Stores jobs in a database table using SQLAlchemy. The table will be created if it doesn't exist in the database.
 
     Plugin alias: ``sqlalchemy``
 
     :param str url: connection string (see `SQLAlchemy documentation
-        <http://docs.sqlalchemy.org/en/latest/core/engines.html?highlight=create_engine#database-urls>`_
-        on this)
+                    <http://docs.sqlalchemy.org/en/latest/core/engines.html?highlight=create_engine#database-urls>`_
+                    on this)
     :param engine: an SQLAlchemy Engine to use instead of creating a new one based on ``url``
     :param str tablename: name of the table to store jobs in
     :param metadata: a :class:`~sqlalchemy.MetaData` instance to use instead of creating a new one
-    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the
-        highest available
+    :param int pickle_protocol: pickle protocol level to use (for serialization), defaults to the highest available
     """
 
     def __init__(self, url=None, engine=None, tablename='apscheduler_jobs', metadata=None,
@@ -41,6 +38,8 @@ class SQLAlchemyJobStore(BaseJobStore):
         self.pickle_protocol = pickle_protocol
         metadata = maybe_ref(metadata) or MetaData()
 
+	if url is not None:
+            self.url = url
         if engine:
             self.engine = maybe_ref(engine)
         elif url:
@@ -48,8 +47,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         else:
             raise ValueError('Need either "engine" or "url" defined')
 
-        # 191 = max key length in MySQL for InnoDB/utf8mb4 tables,
-        # 25 = precision that translates to an 8-byte float
+        # 191 = max key length in MySQL for InnoDB/utf8mb4 tables, 25 = precision that translates to an 8-byte float
         self.jobs_t = Table(
             tablename, metadata,
             Column('id', Unicode(191, _warn_on_bytestring=False), primary_key=True),
@@ -57,30 +55,78 @@ class SQLAlchemyJobStore(BaseJobStore):
             Column('job_state', LargeBinary, nullable=False)
         )
 
-    def start(self, scheduler, alias):
-        super(SQLAlchemyJobStore, self).start(scheduler, alias)
         self.jobs_t.create(self.engine, True)
 
     def lookup_job(self, job_id):
-        selectable = select([self.jobs_t.c.job_state]).where(self.jobs_t.c.id == job_id)
-        job_state = self.engine.execute(selectable).scalar()
-        return self._reconstitute_job(job_state) if job_state else None
+        try:
+            selectable = select([self.jobs_t.c.job_state]).where(self.jobs_t.c.id == job_id)
+            job_state = self.engine.execute(selectable).scalar()
+            return self._reconstitute_job(job_state) if job_state else None
+        except SQLAlchemyError, e:
+            if isinstance(e.orig, InvalidRequestError):
+               self.session.rollback()
+            elif not isinstance(e, OperationalError):
+               raise
+
+            del self.engine
+            self.engine = create_engine(self.url)
+            selectable = select([self.jobs_t.c.job_state]).where(self.jobs_t.c.id == job_id)
+            job_state = self.engine.execute(selectable).scalar()
+            return self._reconstitute_job(job_state) if job_state else None
+
 
     def get_due_jobs(self, now):
-        timestamp = datetime_to_utc_timestamp(now)
-        return self._get_jobs(self.jobs_t.c.next_run_time <= timestamp)
+        try:
+            timestamp = datetime_to_utc_timestamp(now)
+            return self._get_jobs(self.jobs_t.c.next_run_time <= timestamp)
+        except SQLAlchemyError, e:
+            if isinstance(e.orig, InvalidRequestError):
+               self.session.rollback()
+            elif not isinstance(e, OperationalError):
+               raise
+
+            del self.engine 
+            self.engine = create_engine(self.url)
+            timestamp = datetime_to_utc_timestamp(now)
+            return self._get_jobs(self.jobs_t.c.next_run_time <= timestamp)
+
 
     def get_next_run_time(self):
-        selectable = select([self.jobs_t.c.next_run_time]).\
-            where(self.jobs_t.c.next_run_time != null()).\
-            order_by(self.jobs_t.c.next_run_time).limit(1)
-        next_run_time = self.engine.execute(selectable).scalar()
-        return utc_timestamp_to_datetime(next_run_time)
+        try:
+            selectable = select([self.jobs_t.c.next_run_time]).where(self.jobs_t.c.next_run_time != None).\
+                order_by(self.jobs_t.c.next_run_time).limit(1)
+            next_run_time = self.engine.execute(selectable).scalar()
+            return utc_timestamp_to_datetime(next_run_time)
+        except SQLAlchemyError, e:
+            if isinstance(e.orig, InvalidRequestError):
+               self.session.rollback()
+            elif not isinstance(e, OperationalError):
+               raise
+
+            del self.engine 
+            self.engine = create_engine(self.url)
+            selectable = select([self.jobs_t.c.next_run_time]).where(self.jobs_t.c.next_run_time != None).\
+                order_by(self.jobs_t.c.next_run_time).limit(1)
+            next_run_time = self.engine.execute(selectable).scalar()
+            return utc_timestamp_to_datetime(next_run_time)
+
 
     def get_all_jobs(self):
-        jobs = self._get_jobs()
-        self._fix_paused_jobs_sorting(jobs)
-        return jobs
+        try:
+            jobs = self._get_jobs()
+            self._fix_paused_jobs_sorting(jobs)
+            return jobs
+        except SQLAlchemyError, e:
+            if isinstance(e.orig, InvalidRequestError):
+               self.session.rollback()
+            elif not isinstance(e, OperationalError):
+               raise
+
+            del self.engine 
+            self.engine = create_engine(self.url)
+            jobs = self._get_jobs()
+            self._fix_paused_jobs_sorting(jobs)
+            return jobs
 
     def add_job(self, job):
         insert = self.jobs_t.insert().values(**{
@@ -92,6 +138,15 @@ class SQLAlchemyJobStore(BaseJobStore):
             self.engine.execute(insert)
         except IntegrityError:
             raise ConflictingIdError(job.id)
+        except SQLAlchemyError, e:
+            if isinstance(e.orig, InvalidRequestError):
+               self.session.rollback()
+            elif not isinstance(e, OperationalError):
+               raise
+
+            del self.engine 
+            self.engine = create_engine(self.url)
+            self.engine.execute(insert)
 
     def update_job(self, job):
         update = self.jobs_t.update().values(**{
@@ -103,10 +158,24 @@ class SQLAlchemyJobStore(BaseJobStore):
             raise JobLookupError(id)
 
     def remove_job(self, job_id):
-        delete = self.jobs_t.delete().where(self.jobs_t.c.id == job_id)
-        result = self.engine.execute(delete)
-        if result.rowcount == 0:
-            raise JobLookupError(job_id)
+        try:
+            delete = self.jobs_t.delete().where(self.jobs_t.c.id == job_id)
+            result = self.engine.execute(delete)
+            if result.rowcount == 0:
+                raise JobLookupError(job_id)
+        except SQLAlchemyError, e:
+            if isinstance(e.orig, InvalidRequestError):
+               self.session.rollback()
+            elif not isinstance(e, OperationalError):
+               raise
+
+            del self.engine 
+            self.engine = create_engine(self.url)
+            delete = self.jobs_t.delete().where(self.jobs_t.c.id == job_id)
+            result = self.engine.execute(delete)
+            if result.rowcount == 0:
+                raise JobLookupError(job_id)
+
 
     def remove_all_jobs(self):
         delete = self.jobs_t.delete()
@@ -126,8 +195,7 @@ class SQLAlchemyJobStore(BaseJobStore):
 
     def _get_jobs(self, *conditions):
         jobs = []
-        selectable = select([self.jobs_t.c.id, self.jobs_t.c.job_state]).\
-            order_by(self.jobs_t.c.next_run_time)
+        selectable = select([self.jobs_t.c.id, self.jobs_t.c.job_state]).order_by(self.jobs_t.c.next_run_time)
         selectable = selectable.where(*conditions) if conditions else selectable
         failed_job_ids = set()
         for row in self.engine.execute(selectable):
