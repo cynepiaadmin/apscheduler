@@ -7,6 +7,7 @@ from apscheduler.triggers.base import BaseTrigger
 from apscheduler.util import (
     ref_to_obj, obj_to_ref, datetime_repr, repr_escape, get_callable_name, check_callable_args,
     convert_to_datetime)
+import collections
 
 
 class Job(object):
@@ -155,7 +156,7 @@ class Job(object):
             if isinstance(func, six.string_types):
                 func_ref = func
                 func = ref_to_obj(func)
-            elif callable(func):
+            elif isinstance(func, collections.Callable):
                 try:
                     func_ref = obj_to_ref(func)
                 except ValueError:
@@ -286,4 +287,4 @@ class Job(object):
         else:
             status = 'pending'
 
-        return u'%s (trigger: %s, %s)' % (self.name, self.trigger, status)
+        return '%s (trigger: %s, %s)' % (self.name, self.trigger, status)
