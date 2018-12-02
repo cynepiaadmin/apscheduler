@@ -8,7 +8,7 @@ class JobLookupError(KeyError):
     """Raised when the job store cannot find a job for update or removal."""
 
     def __init__(self, job_id):
-        super(JobLookupError, self).__init__(u'No job by the id of %s was found' % job_id)
+        super(JobLookupError, self).__init__('No job by the id of %s was found' % job_id)
 
 
 class ConflictingIdError(KeyError):
@@ -16,7 +16,7 @@ class ConflictingIdError(KeyError):
 
     def __init__(self, job_id):
         super(ConflictingIdError, self).__init__(
-            u'Job identifier (%s) conflicts with an existing job' % job_id)
+            'Job identifier (%s) conflicts with an existing job' % job_id)
 
 
 class TransientJobError(ValueError):
@@ -27,8 +27,8 @@ class TransientJobError(ValueError):
 
     def __init__(self, job_id):
         super(TransientJobError, self).__init__(
-            u'Job (%s) cannot be added to this job store because a reference to the callable '
-            u'could not be determined.' % job_id)
+            'Job (%s) cannot be added to this job store because a reference to the callable '
+            'could not be determined.' % job_id)
 
 
 class BaseJobStore(six.with_metaclass(ABCMeta)):

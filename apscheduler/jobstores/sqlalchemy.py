@@ -1,11 +1,11 @@
-from __future__ import absolute_import
+
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
 try:
-    import cPickle as pickle
+    import pickle as pickle
 except ImportError:  # pragma: nocover
     import pickle
 
@@ -62,7 +62,7 @@ class SQLAlchemyJobStore(BaseJobStore):
             selectable = select([self.jobs_t.c.job_state]).where(self.jobs_t.c.id == job_id)
             job_state = self.engine.execute(selectable).scalar()
             return self._reconstitute_job(job_state) if job_state else None
-        except SQLAlchemyError, e:
+        except SQLAlchemyError as e:
             if isinstance(e.orig, InvalidRequestError):
                self.session.rollback()
             elif not isinstance(e, OperationalError):
@@ -79,7 +79,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         try:
             timestamp = datetime_to_utc_timestamp(now)
             return self._get_jobs(self.jobs_t.c.next_run_time <= timestamp)
-        except SQLAlchemyError, e:
+        except SQLAlchemyError as e:
             if isinstance(e.orig, InvalidRequestError):
                self.session.rollback()
             elif not isinstance(e, OperationalError):
@@ -97,7 +97,7 @@ class SQLAlchemyJobStore(BaseJobStore):
                 order_by(self.jobs_t.c.next_run_time).limit(1)
             next_run_time = self.engine.execute(selectable).scalar()
             return utc_timestamp_to_datetime(next_run_time)
-        except SQLAlchemyError, e:
+        except SQLAlchemyError as e:
             if isinstance(e.orig, InvalidRequestError):
                self.session.rollback()
             elif not isinstance(e, OperationalError):
@@ -116,7 +116,7 @@ class SQLAlchemyJobStore(BaseJobStore):
             jobs = self._get_jobs()
             self._fix_paused_jobs_sorting(jobs)
             return jobs
-        except SQLAlchemyError, e:
+        except SQLAlchemyError as e:
             if isinstance(e.orig, InvalidRequestError):
                self.session.rollback()
             elif not isinstance(e, OperationalError):
@@ -138,7 +138,7 @@ class SQLAlchemyJobStore(BaseJobStore):
             self.engine.execute(insert)
         except IntegrityError:
             raise ConflictingIdError(job.id)
-        except SQLAlchemyError, e:
+        except SQLAlchemyError as e:
             if isinstance(e.orig, InvalidRequestError):
                self.session.rollback()
             elif not isinstance(e, OperationalError):
@@ -163,7 +163,7 @@ class SQLAlchemyJobStore(BaseJobStore):
             result = self.engine.execute(delete)
             if result.rowcount == 0:
                 raise JobLookupError(job_id)
-        except SQLAlchemyError, e:
+        except SQLAlchemyError as e:
             if isinstance(e.orig, InvalidRequestError):
                self.session.rollback()
             elif not isinstance(e, OperationalError):

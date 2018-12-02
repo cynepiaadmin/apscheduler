@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 import warnings
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
@@ -6,7 +6,7 @@ from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp
 from apscheduler.job import Job
 
 try:
-    import cPickle as pickle
+    import pickle as pickle
 except ImportError:  # pragma: nocover
     import pickle
 

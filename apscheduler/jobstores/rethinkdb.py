@@ -1,11 +1,11 @@
-from __future__ import absolute_import
+
 
 from apscheduler.jobstores.base import BaseJobStore, JobLookupError, ConflictingIdError
 from apscheduler.util import maybe_ref, datetime_to_utc_timestamp, utc_timestamp_to_datetime
 from apscheduler.job import Job
 
 try:
-    import cPickle as pickle
+    import pickle as pickle
 except ImportError:  # pragma: nocover
     import pickle
 
@@ -104,7 +104,7 @@ class RethinkDBJobStore(BaseJobStore):
             'job_state': r.binary(pickle.dumps(job.__getstate__(), self.pickle_protocol))
         }
         results = self.table.get_all(job.id).update(changes).run(self.conn)
-        skipped = False in map(lambda x: results[x] == 0, results.keys())
+        skipped = False in [results[x] == 0 for x in list(results.keys())]
         if results['skipped'] > 0 or results['errors'] > 0 or not skipped:
             raise JobLookupError(job.id)
 

@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 from abc import ABCMeta, abstractmethod
 from collections import MutableMapping
@@ -654,23 +654,23 @@ class BaseScheduler(six.with_metaclass(ABCMeta)):
         out = out or sys.stdout
         with self._jobstores_lock:
             if self.state == STATE_STOPPED:
-                print(u'Pending jobs:', file=out)
+                print('Pending jobs:', file=out)
                 if self._pending_jobs:
                     for job, jobstore_alias, replace_existing in self._pending_jobs:
                         if jobstore in (None, jobstore_alias):
-                            print(u'    %s' % job, file=out)
+                            print('    %s' % job, file=out)
                 else:
-                    print(u'    No pending jobs', file=out)
+                    print('    No pending jobs', file=out)
             else:
                 for alias, store in sorted(six.iteritems(self._jobstores)):
                     if jobstore in (None, alias):
-                        print(u'Jobstore %s:' % alias, file=out)
+                        print('Jobstore %s:' % alias, file=out)
                         jobs = store.get_all_jobs()
                         if jobs:
                             for job in jobs:
-                                print(u'    %s' % job, file=out)
+                                print('    %s' % job, file=out)
                         else:
-                            print(u'    No scheduled jobs', file=out)
+                            print('    No scheduled jobs', file=out)
 
     @abstractmethod
     def wakeup(self):
