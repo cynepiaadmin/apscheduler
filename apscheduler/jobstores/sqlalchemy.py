@@ -38,7 +38,7 @@ class SQLAlchemyJobStore(BaseJobStore):
         self.pickle_protocol = pickle_protocol
         metadata = maybe_ref(metadata) or MetaData()
 
-	if url is not None:
+        if url is not None:
             self.url = url
         if engine:
             self.engine = maybe_ref(engine)
